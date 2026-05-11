@@ -1,21 +1,21 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Configurações do jogo
+// ============ CONFIGURAÇÕES ============
 const SEGMENT_LENGTH = 200;
 const RUMBLE_LENGTH = 3;
 const ROAD_WIDTH = 2000;
 const LANES = 3;
 const CAMERA_HEIGHT = 1000;
-const CAMERA_DEPTH = 0.8;
+const CAMERA_DEPTH = 0.84;
 const DRAW_DISTANCE = 300;
+
 const MAX_SPEED = 12000;
 const ACCEL = 8000;
 const BREAKING = -16000;
 const DECEL = -4000;
-const FPS = 60;
 
-// Variáveis do jogo
+// ============ VARIÁVEIS DO JOGO ============
 let position = 0;
 let speed = 0;
 let playerX = 0;
@@ -28,7 +28,7 @@ let particles = [];
 let scenario = 0;
 let lastTime = 0;
 
-// Cenários
+// ============ CENÁRIOS ============
 const SCENARIOS = [
     { 
         name: '🌆 Cidade ao Pôr do Sol', 
@@ -36,10 +36,7 @@ const SCENARIOS = [
         ground: '#2d2d2d', 
         road: '#555555', 
         rumble: '#ff6b35', 
-        lane: '#ffffff', 
-        tree: '#2d5016', 
-        building: '#4a4a6a', 
-        buildingWindow: '#f7b731' 
+        lane: '#ffffff'
     },
     { 
         name: '🏖️ Praia Tropical', 
@@ -47,10 +44,7 @@ const SCENARIOS = [
         ground: '#c2b280', 
         road: '#666666', 
         rumble: '#ff6b35', 
-        lane: '#ffffff', 
-        tree: '#228b22', 
-        building: '#f4e4c1', 
-        buildingWindow: '#87ceeb' 
+        lane: '#ffffff'
     },
     { 
         name: '🌾 Zona Rural', 
@@ -58,10 +52,7 @@ const SCENARIOS = [
         ground: '#228b22', 
         road: '#444444', 
         rumble: '#ffffff', 
-        lane: '#ffd700', 
-        tree: '#006400', 
-        building: '#8b4513', 
-        buildingWindow: '#deb887' 
+        lane: '#ffd700'
     },
     { 
         name: '🏜️ Deserto', 
@@ -69,23 +60,16 @@ const SCENARIOS = [
         ground: '#d2b48c', 
         road: '#666666', 
         rumble: '#ffffff', 
-        lane: '#ffd700', 
-        tree: '#556b2f', 
-        building: '#a0522d', 
-        buildingWindow: '#f4a460' 
+        lane: '#ffd700'
     }
 ];
 
 const SCENARIO_LENGTH = 10000;
 
-// Teclas
-const keys = {
-    left: false,
-    right: false,
-    up: false,
-    down: false
-};
+// ============ TECLAS ============
+const keys = { left: false, right: false, up: false, down: false };
 
+// ============ INICIALIZAÇÃO ============
 function init() {
     resizeCanvas();
     createRoad();
@@ -114,50 +98,46 @@ function resizeCanvas() {
     canvas.height = container.clientHeight;
 }
 
+// ============ CRIAR ESTRADA ============
 function createRoad() {
     segments = [];
-    const totalLength = SCENARIO_LENGTH * SCENARIOS.length;
-    const numSegments = Math.floor(totalLength / SEGMENT_LENGTH);
+    const numSegments = 2000;
     
     for (let i = 0; i < numSegments; i++) {
-        const curve = (i > 100 && i < 300) ? 2 : 
-                     (i > 500 && i < 700) ? -2 : 
-                     (i > 900 && i < 1100) ? 3 : 
-                     (i > 1500 && i < 1700) ? -3 : 0;
+        let curve = 0;
+        if (i > 100 && i < 300) curve = 2;
+        else if (i > 500 && i < 700) curve = -2;
+        else if (i > 900 && i < 1100) curve = 3;
+        else if (i > 1500 && i < 1700) curve = -3;
         
-        const hill = (i > 200 && i < 400) ? Math.sin(i * 0.02) * 1000 : 
-                     (i > 800 && i < 1000) ? Math.sin(i * 0.02) * 1500 : 0;
+        let y = 0;
+        if (i > 200 && i < 400) y = Math.sin(i * 0.02) * 1000;
+        else if (i > 800 && i < 1000) y = Math.sin(i * 0.02) * 1500;
         
         segments.push({
             index: i,
-            p1: { world: { z: i * SEGMENT_LENGTH, y: hill, x: 0 }, camera: {}, screen: {} },
-            p2: { world: { z: (i + 1) * SEGMENT_LENGTH, y: hill + Math.sin((i+1) * 0.02) * 1000, x: 0 }, camera: {}, screen: {} },
+            p1: { world: { z: i * SEGMENT_LENGTH, y: y, x: 0 }, camera: {}, screen: {} },
+            p2: { world: { z: (i + 1) * SEGMENT_LENGTH, y: y, x: 0 }, camera: {}, screen: {} },
             curve: curve,
             sprites: [],
-            cars: [],
             color: Math.floor(i / RUMBLE_LENGTH) % 2 === 0 ? 'dark' : 'light'
         });
     }
     
-    // Adicionar sprites (árvores, prédios)
-    for (let i = 50; i < numSegments - 50; i += 4) {
+    for (let i = 50; i < numSegments - 50; i += 5) {
         const side = Math.random() > 0.5 ? 1 : -1;
         const offset = side * (2 + Math.random() * 2);
         const scenarioIdx = Math.floor((i * SEGMENT_LENGTH) / SCENARIO_LENGTH) % SCENARIOS.length;
         
-        if (Math.random() > 0.4) {
-            segments[i].sprites.push({
-                type: 'tree',
-                offset: offset,
-                scenario: scenarioIdx
-            });
+        if (Math.random() > 0.5) {
+            segments[i].sprites.push({ type: 'tree', offset: offset, scenario: scenarioIdx });
         } else if (scenarioIdx === 0 || scenarioIdx === 1) {
-            segments[i].sprites.push({
-                type: 'building',
-                offset: offset,
+            segments[i].sprites.push({ 
+                type: 'building', 
+                offset: offset, 
                 height: 3000 + Math.random() * 4000,
                 width: 1500 + Math.random() * 1000,
-                scenario: scenarioIdx
+                scenario: scenarioIdx 
             });
         }
     }
@@ -165,26 +145,25 @@ function createRoad() {
 
 function generateCars() {
     cars = [];
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 10; i++) {
         const segment = Math.floor(Math.random() * (segments.length - 300)) + 150;
         const lane = Math.floor(Math.random() * LANES) - 1;
-        const offset = lane * 0.8;
         
         cars.push({
             segment: segment,
-            offset: offset,
+            offset: lane * 0.8,
             z: segment * SEGMENT_LENGTH,
             speed: MAX_SPEED * (0.3 + Math.random() * 0.4),
-            sprite: ['🚗', '🚙', '🚕', '🏎️', '🚓'][Math.floor(Math.random() * 5)],
-            color: `hsl(${Math.random() * 360}, 70%, 50%)`
+            sprite: ['🚗', '🚙', '🚕', '🏎️', '🚓'][Math.floor(Math.random() * 5)]
         });
     }
 }
 
+// ============ PROJEÇÃO 3D ============
 function project(p, cameraX, cameraY, cameraZ, cameraDepth, width, height, roadWidth) {
-    p.camera.x = (p.world.x || 0) - cameraX;
-    p.camera.y = (p.world.y || 0) - cameraY;
-    p.camera.z = (p.world.z || 0) - cameraZ;
+    p.camera.x = p.world.x - cameraX;
+    p.camera.y = p.world.y - cameraY;
+    p.camera.z = p.world.z - cameraZ;
     
     const scale = cameraDepth / p.camera.z;
     
@@ -194,6 +173,7 @@ function project(p, cameraX, cameraY, cameraZ, cameraDepth, width, height, roadW
     p.screen.w = Math.round((scale * roadWidth * width / 2));
 }
 
+// ============ DESENHO ============
 function drawPolygon(ctx, x1, y1, x2, y2, x3, y3, x4, y4, color) {
     ctx.fillStyle = color;
     ctx.beginPath();
@@ -205,7 +185,7 @@ function drawPolygon(ctx, x1, y1, x2, y2, x3, y3, x4, y4, color) {
     ctx.fill();
 }
 
-function drawSegment(ctx, width, lanes, segment, scenarioColors) {
+function drawSegment(ctx, width, lanes, segment, color) {
     const x1 = segment.p1.screen.x;
     const y1 = segment.p1.screen.y;
     const w1 = segment.p1.screen.w;
@@ -216,83 +196,75 @@ function drawSegment(ctx, width, lanes, segment, scenarioColors) {
     const r1 = w1 / Math.max(6, 2 * lanes);
     const r2 = w2 / Math.max(6, 2 * lanes);
     
-    // Grama/terra (fundo)
-    ctx.fillStyle = scenarioColors.ground;
-    ctx.fillRect(0, y2, width, y1 - y2);
+    ctx.fillStyle = color.ground;
+    ctx.fillRect(0, y2, width, y1 - y2 + 1);
     
-    // Bordas da estrada (rumble strips)
-    drawPolygon(ctx, x1 - w1 - r1, y1, x1 - w1, y1, x2 - w2, y2, x2 - w2 - r2, y2, scenarioColors.rumble);
-    drawPolygon(ctx, x1 + w1 + r1, y1, x1 + w1, y1, x2 + w2, y2, x2 + w2 + r2, y2, scenarioColors.rumble);
+    drawPolygon(ctx, x1 - w1 - r1, y1, x1 - w1, y1, x2 - w2, y2, x2 - w2 - r2, y2, color.rumble);
+    drawPolygon(ctx, x1 + w1 + r1, y1, x1 + w1, y1, x2 + w2, y2, x2 + w2 + r2, y2, color.rumble);
+    drawPolygon(ctx, x1 - w1, y1, x1 + w1, y1, x2 + w2, y2, x2 - w2, y2, color.road);
     
-    // Estrada principal
-    drawPolygon(ctx, x1 - w1, y1, x1 + w1, y1, x2 + w2, y2, x2 - w2, y2, scenarioColors.road);
-    
-    // Faixas centrais
     if (segment.color === 'light') {
         const laneW1 = w1 * 0.02;
         const laneW2 = w2 * 0.02;
         
         const laneX1 = x1 - w1 * 0.5;
         const laneX2 = x2 - w2 * 0.5;
-        drawPolygon(ctx, laneX1 - laneW1, y1, laneX1 + laneW1, y1, laneX2 + laneW2, y2, laneX2 - laneW2, y2, scenarioColors.lane);
+        drawPolygon(ctx, laneX1 - laneW1, y1, laneX1 + laneW1, y1, laneX2 + laneW2, y2, laneX2 - laneW2, y2, color.lane);
         
         const laneX1b = x1 + w1 * 0.5;
         const laneX2b = x2 + w2 * 0.5;
-        drawPolygon(ctx, laneX1b - laneW1, y1, laneX1b + laneW1, y1, laneX2b + laneW2, y2, laneX2b - laneW2, y2, scenarioColors.lane);
+        drawPolygon(ctx, laneX1b - laneW1, y1, laneX1b + laneW1, y1, laneX2b + laneW2, y2, laneX2b - laneW2, y2, color.lane);
     }
 }
 
-function drawSprite(ctx, width, height, roadWidth, sprite, scale, destX, destY) {
-    const destW = (sprite.type === 'building' ? sprite.width : 1000) * scale * width / 2 * (1 / 800);
-    const destH = (sprite.type === 'building' ? sprite.height : 1000) * scale * width / 2 * (1 / 800);
+function drawSprite(ctx, width, height, sprite, scale, destX, destY) {
+    const destW = (sprite.type === 'building' ? sprite.width : 1200) * scale * width / 2 * (1 / 800);
+    const destH = (sprite.type === 'building' ? sprite.height : 1200) * scale * width / 2 * (1 / 800);
     
     const renderX = destX - destW / 2;
     const renderY = destY - destH;
     
-    if (renderY < 0 || renderY > height) return;
+    if (renderY < -destH || renderY > height + destH) return;
     
     ctx.save();
     
     if (sprite.type === 'tree') {
-        const trunkW = destW * 0.2;
-        const trunkH = destH * 0.4;
+        const trunkW = destW * 0.15;
+        const trunkH = destH * 0.35;
         
-        // Tronco
         ctx.fillStyle = '#8B4513';
         ctx.fillRect(renderX + destW/2 - trunkW/2, renderY + destH - trunkH, trunkW, trunkH);
         
-        // Copa
-        const foliageColors = ['#228B22', '#006400', '#2E8B57', '#3CB371'];
-        const color = foliageColors[sprite.scenario % foliageColors.length];
-        ctx.fillStyle = color;
+        const colors = ['#228B22', '#006400', '#2E8B57'];
+        ctx.fillStyle = colors[sprite.scenario % colors.length];
         ctx.beginPath();
-        ctx.arc(renderX + destW/2, renderY + destH * 0.5, destW * 0.4, 0, Math.PI * 2);
+        ctx.arc(renderX + destW/2, renderY + destH * 0.4, destW * 0.35, 0, Math.PI * 2);
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(renderX + destW * 0.3, renderY + destH * 0.6, destW * 0.3, 0, Math.PI * 2);
+        ctx.arc(renderX + destW * 0.25, renderY + destH * 0.5, destW * 0.25, 0, Math.PI * 2);
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(renderX + destW * 0.7, renderY + destH * 0.6, destW * 0.3, 0, Math.PI * 2);
+        ctx.arc(renderX + destW * 0.75, renderY + destH * 0.5, destW * 0.25, 0, Math.PI * 2);
         ctx.fill();
         
     } else if (sprite.type === 'building') {
-        ctx.fillStyle = SCENARIOS[sprite.scenario].building;
+        const buildingColors = ['#4a4a6a', '#f4e4c1', '#8b4513', '#a0522d'];
+        const windowColors = ['#f7b731', '#87ceeb', '#deb887', '#f4a460'];
+        
+        ctx.fillStyle = buildingColors[sprite.scenario % buildingColors.length];
         ctx.fillRect(renderX, renderY, destW, destH);
         
-        ctx.fillStyle = SCENARIOS[sprite.scenario].buildingWindow;
-        const windowSize = destW * 0.08;
-        const windowGap = destW * 0.15;
+        ctx.fillStyle = windowColors[sprite.scenario % windowColors.length];
+        const winSize = destW * 0.08;
+        const winGap = destW * 0.15;
         
-        for (let wy = renderY + windowGap; wy < renderY + destH - windowGap; wy += windowGap * 2) {
-            for (let wx = renderX + windowGap; wx < renderX + destW - windowGap; wx += windowGap * 1.5) {
-                if ((wy + wx) % 3 !== 0) {
-                    ctx.fillRect(wx, wy, windowSize, windowSize * 1.5);
+        for (let wy = renderY + winGap; wy < renderY + destH - winGap; wy += winGap * 2) {
+            for (let wx = renderX + winGap; wx < renderX + destW - winGap; wx += winGap * 1.5) {
+                if ((Math.floor(wy + wx) % 7) !== 0) {
+                    ctx.fillRect(wx, wy, winSize, winSize * 1.5);
                 }
             }
         }
-        
-        ctx.fillStyle = SCENARIOS[sprite.scenario].building;
-        ctx.fillRect(renderX - destW * 0.05, renderY - destH * 0.05, destW * 1.1, destH * 0.05);
     }
     
     ctx.restore();
@@ -300,41 +272,32 @@ function drawSprite(ctx, width, height, roadWidth, sprite, scale, destX, destY) 
 
 function drawCar(ctx, car, scale, destX, destY) {
     const destH = 500 * scale;
-    
-    ctx.font = `${Math.round(destH)}px Arial`;
+    ctx.font = `${Math.max(12, Math.round(destH))}px Arial`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillText(car.sprite, destX, destY);
 }
 
 function drawPlayer(ctx, width, height) {
-    const scale = 0.3 * (width / 1024);
+    const scale = 0.35 * (width / 1024);
     const destX = width / 2;
-    const destY = height - 50;
-    const destW = 600 * scale;
+    const destY = height - 80;
     const destH = 400 * scale;
     
-    // Sombra
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
-    ctx.ellipse(destX, destY + 10, destW/2, destH/6, 0, 0, Math.PI * 2);
+    ctx.ellipse(destX, destY + 5, destH * 0.6, destH * 0.15, 0, 0, Math.PI * 2);
     ctx.fill();
     
-    // Carro do jogador
     ctx.font = `${Math.round(destH)}px Arial`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     
     ctx.save();
     ctx.translate(destX, destY);
-    ctx.rotate(playerX * 0.05);
+    ctx.rotate(playerX * 0.08);
     ctx.fillText('🏎️', 0, 0);
     ctx.restore();
-    
-    // Luzes traseiras
-    ctx.fillStyle = 'rgba(255, 50, 50, 0.8)';
-    ctx.fillRect(destX - destW * 0.35, destY - destH * 0.3, destW * 0.1, destH * 0.15);
-    ctx.fillRect(destX + destW * 0.25, destY - destH * 0.3, destW * 0.1, destH * 0.15);
 }
 
 function drawSky(ctx, width, height, scenarioIdx) {
@@ -348,33 +311,30 @@ function drawSky(ctx, width, height, scenarioIdx) {
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
     
-    // Sol/Lua
-    const sunY = height * 0.3;
-    const sunX = width * 0.7;
+    const sunY = height * 0.25;
+    const sunX = width * 0.75;
     
     ctx.fillStyle = scenarioIdx === 0 ? '#ff6b35' : '#f7b731';
     ctx.beginPath();
-    ctx.arc(sunX, sunY, 40, 0, Math.PI * 2);
+    ctx.arc(sunX, sunY, 35, 0, Math.PI * 2);
     ctx.fill();
     
-    // Brilho do sol
-    const sunGlow = ctx.createRadialGradient(sunX, sunY, 20, sunX, sunY, 100);
-    sunGlow.addColorStop(0, 'rgba(255, 107, 53, 0.3)');
-    sunGlow.addColorStop(1, 'rgba(255, 107, 53, 0)');
-    ctx.fillStyle = sunGlow;
+    const glow = ctx.createRadialGradient(sunX, sunY, 15, sunX, sunY, 80);
+    glow.addColorStop(0, 'rgba(255, 107, 53, 0.3)');
+    glow.addColorStop(1, 'rgba(255, 107, 53, 0)');
+    ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(sunX, sunY, 100, 0, Math.PI * 2);
+    ctx.arc(sunX, sunY, 80, 0, Math.PI * 2);
     ctx.fill();
     
-    // Nuvens
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    for (let i = 0; i < 5; i++) {
-        const cloudX = ((Date.now() * 0.02 + i * 200) % (width + 200)) - 100;
-        const cloudY = 50 + i * 30 + Math.sin(i) * 20;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+    for (let i = 0; i < 4; i++) {
+        const cx = ((Date.now() * 0.015 + i * 250) % (width + 200)) - 100;
+        const cy = 40 + i * 25;
         ctx.beginPath();
-        ctx.arc(cloudX, cloudY, 30, 0, Math.PI * 2);
-        ctx.arc(cloudX + 25, cloudY - 10, 35, 0, Math.PI * 2);
-        ctx.arc(cloudX + 50, cloudY, 30, 0, Math.PI * 2);
+        ctx.arc(cx, cy, 25, 0, Math.PI * 2);
+        ctx.arc(cx + 20, cy - 8, 30, 0, Math.PI * 2);
+        ctx.arc(cx + 45, cy, 25, 0, Math.PI * 2);
         ctx.fill();
     }
 }
@@ -384,8 +344,8 @@ function drawParticles(ctx) {
         const p = particles[i];
         p.x += p.vx;
         p.y += p.vy;
-        p.life -= 0.02;
-        p.size *= 0.98;
+        p.life -= 0.025;
+        p.size *= 0.97;
         
         if (p.life <= 0) {
             particles.splice(i, 1);
@@ -402,98 +362,74 @@ function drawParticles(ctx) {
 function addParticle(x, y, r, g, b, speed) {
     for (let i = 0; i < 5; i++) {
         particles.push({
-            x: x,
-            y: y,
+            x: x, y: y,
             vx: (Math.random() - 0.5) * speed,
             vy: (Math.random() - 0.5) * speed,
-            r: r,
-            g: g,
-            b: b,
-            life: 1,
-            size: 5 + Math.random() * 10
+            r: r, g: g, b: b,
+            life: 1, size: 4 + Math.random() * 8
         });
     }
 }
 
+// ============ ATUALIZAÇÃO ============
 function update(dt) {
-    // Controles
-    if (keys.up) {
-        speed += ACCEL * dt;
-    } else if (keys.down) {
-        speed += BREAKING * dt;
-    } else {
-        speed += DECEL * dt;
-    }
+    if (keys.up) speed += ACCEL * dt;
+    else if (keys.down) speed += BREAKING * dt;
+    else speed += DECEL * dt;
     
-    if (keys.left) playerX -= 2 * dt;
-    if (keys.right) playerX += 2 * dt;
+    if (keys.left) playerX -= 2.5 * dt;
+    if (keys.right) playerX += 2.5 * dt;
     
-    // Limites
-    if (speed > MAX_SPEED) speed = MAX_SPEED;
-    if (speed < 0) speed = 0;
-    if (playerX < -2) playerX = -2;
-    if (playerX > 2) playerX = 2;
+    speed = Math.max(0, Math.min(speed, MAX_SPEED));
+    playerX = Math.max(-2.5, Math.min(playerX, 2.5));
     
-    // Posição
     position += speed * dt;
     distance = Math.floor(position / 100);
     
-    // Cenário atual
+    const trackLength = segments.length * SEGMENT_LENGTH;
+    if (position >= trackLength) position -= trackLength;
+    
     const newScenario = Math.floor(distance / (SCENARIO_LENGTH / 100)) % SCENARIOS.length;
     if (newScenario !== scenario) {
         scenario = newScenario;
         document.getElementById('scenarioDisplay').textContent = SCENARIOS[scenario].name;
     }
     
-    // Atualizar carros
     for (let i = 0; i < cars.length; i++) {
         const car = cars[i];
         car.z += car.speed * dt;
         
-        if (car.z > position + DRAW_DISTANCE * SEGMENT_LENGTH) {
-            car.z = position - 1000;
-            car.segment = Math.floor(car.z / SEGMENT_LENGTH);
-            car.offset = (Math.floor(Math.random() * LANES) - 1) * 0.8;
-        }
+        if (car.z >= trackLength) car.z -= trackLength;
+        if (car.z < 0) car.z += trackLength;
         
-        car.segment = Math.floor(car.z / SEGMENT_LENGTH);
+        car.segment = Math.floor(car.z / SEGMENT_LENGTH) % segments.length;
         
-        // Colisão
-        const carSegment = car.segment;
-        const playerSegment = Math.floor(position / SEGMENT_LENGTH);
+        const playerSeg = Math.floor(position / SEGMENT_LENGTH) % segments.length;
         
-        if (carSegment === playerSegment || carSegment === playerSegment + 1) {
+        if (car.segment === playerSeg || car.segment === (playerSeg + 1) % segments.length) {
             const carWorldX = car.offset * ROAD_WIDTH;
             const playerWorldX = playerX * ROAD_WIDTH;
             
-            if (Math.abs(carWorldX - playerWorldX) < 800 && speed > car.speed) {
-                speed *= 0.5;
+            if (Math.abs(carWorldX - playerWorldX) < 700 && speed > car.speed) {
+                speed *= 0.3;
                 lives--;
                 updateLives();
-                addParticle(canvas.width / 2, canvas.height - 100, 255, 100, 0, 10);
+                addParticle(canvas.width / 2, canvas.height - 100, 255, 50, 0, 12);
                 
-                if (lives <= 0) {
-                    gameOver();
-                }
+                if (lives <= 0) gameOver();
             }
         }
     }
     
-    // Partículas de velocidade
-    if (speed > MAX_SPEED * 0.5 && Math.random() > 0.7) {
-        addParticle(
-            canvas.width / 2 + (Math.random() - 0.5) * 50,
-            canvas.height - 80,
-            200, 200, 255,
-            5
-        );
+    if (speed > MAX_SPEED * 0.4 && Math.random() > 0.8) {
+        addParticle(canvas.width / 2 + (Math.random() - 0.5) * 40, canvas.height - 70, 200, 200, 255, 4);
     }
     
-    // Atualizar HUD
     document.getElementById('speedDisplay').textContent = Math.floor(speed / 100) + ' km/h';
     document.getElementById('distDisplay').textContent = 'Distância: ' + distance + 'm';
 }
 
+// ============ RENDERIZAÇÃO ============
 function render() {
     const width = canvas.width;
     const height = canvas.height;
@@ -503,83 +439,79 @@ function render() {
     const baseSegment = Math.floor(position / SEGMENT_LENGTH);
     const basePercent = (position % SEGMENT_LENGTH) / SEGMENT_LENGTH;
     
-    const playerSegment = segments[baseSegment % segments.length];
-    const playerY = playerSegment.p1.world.y;
+    const playerY = segments[baseSegment % segments.length].p1.world.y + CAMERA_HEIGHT;
     
-    // Desenhar céu
     drawSky(ctx, width, height, scenario);
     
-    // Projetar segmentos
-    let dx = -playerSegment.curve * basePercent;
+    let dx = 0;
     let x = 0;
-    let maxDrawDistance = Math.min(DRAW_DISTANCE, segments.length);
+    const maxDraw = Math.min(DRAW_DISTANCE, segments.length);
     
-    // Primeiro passo: projetar todos os pontos
-    for (let n = 0; n < maxDrawDistance; n++) {
-        const segment = segments[(baseSegment + n) % segments.length];
+    for (let n = 0; n < maxDraw; n++) {
+        const segmentIndex = (baseSegment + n) % segments.length;
+        const segment = segments[segmentIndex];
         const looped = segment.index < baseSegment;
+        
         const offsetZ = looped ? segments.length * SEGMENT_LENGTH : 0;
         
-        const camX = playerX * ROAD_WIDTH;
-        const camY = CAMERA_HEIGHT + playerY;
-        const camZ = position - offsetZ;
+        const cameraX = playerX * ROAD_WIDTH + x;
+        const cameraY = playerY;
+        const cameraZ = position - offsetZ;
         
-        project(segment.p1, camX - x, camY, camZ, CAMERA_DEPTH, width, height, ROAD_WIDTH);
-        project(segment.p2, camX - x - dx, camY, camZ, CAMERA_DEPTH, width, height, ROAD_WIDTH);
+        project(segment.p1, cameraX, cameraY, cameraZ, CAMERA_DEPTH, width, height, ROAD_WIDTH);
+        project(segment.p2, cameraX - dx, cameraY, cameraZ, CAMERA_DEPTH, width, height, ROAD_WIDTH);
         
         x += dx;
         dx += segment.curve;
     }
     
-    // Segundo passo: desenhar segmentos de trás para frente
-    const scenarioColors = SCENARIOS[scenario];
+    const colors = SCENARIOS[scenario];
     let maxy = height;
     
-    for (let n = maxDrawDistance - 1; n > 0; n--) {
-        const segment = segments[(baseSegment + n) % segments.length];
+    for (let n = maxDraw - 1; n > 0; n--) {
+        const segmentIndex = (baseSegment + n) % segments.length;
+        const segment = segments[segmentIndex];
         
         if (segment.p1.camera.z <= CAMERA_DEPTH) continue;
         if (segment.p2.screen.y >= maxy) continue;
         if (segment.p2.screen.y >= segment.p1.screen.y) continue;
         
-        drawSegment(ctx, width, LANES, segment, scenarioColors);
+        drawSegment(ctx, width, LANES, segment, colors);
         maxy = segment.p1.screen.y;
     }
     
-    // Terceiro passo: desenhar sprites e carros de trás para frente
-    for (let n = maxDrawDistance - 1; n > 0; n--) {
-        const segment = segments[(baseSegment + n) % segments.length];
+    for (let n = maxDraw - 1; n > 0; n--) {
+        const segmentIndex = (baseSegment + n) % segments.length;
+        const segment = segments[segmentIndex];
         
-        // Sprites (árvores e prédios)
+        if (segment.p1.camera.z <= CAMERA_DEPTH) continue;
+        
         for (let i = 0; i < segment.sprites.length; i++) {
             const sprite = segment.sprites[i];
-            const spriteScale = segment.p1.screen.scale;
-            const spriteX = segment.p1.screen.x + (spriteScale * sprite.offset * ROAD_WIDTH * width / 2);
+            const scale = segment.p1.screen.scale;
+            const spriteX = segment.p1.screen.x + (scale * sprite.offset * ROAD_WIDTH * width / 2);
             const spriteY = segment.p1.screen.y;
             
-            drawSprite(ctx, width, height, ROAD_WIDTH, sprite, spriteScale, spriteX, spriteY);
+            drawSprite(ctx, width, height, sprite, scale, spriteX, spriteY);
         }
         
-        // Carros NPC
         for (let i = 0; i < cars.length; i++) {
             const car = cars[i];
             if (car.segment === segment.index) {
-                const carScale = segment.p1.screen.scale;
-                const carX = segment.p1.screen.x + (carScale * car.offset * ROAD_WIDTH * width / 2);
+                const scale = segment.p1.screen.scale;
+                const carX = segment.p1.screen.x + (scale * car.offset * ROAD_WIDTH * width / 2);
                 const carY = segment.p1.screen.y;
                 
-                drawCar(ctx, car, carScale, carX, carY);
+                drawCar(ctx, car, scale, carX, carY);
             }
         }
     }
     
-    // Desenhar jogador
     drawPlayer(ctx, width, height);
-    
-    // Desenhar partículas
     drawParticles(ctx);
 }
 
+// ============ GAME LOOP ============
 function gameLoop(timestamp) {
     if (!running) return;
     
@@ -592,14 +524,12 @@ function gameLoop(timestamp) {
     requestAnimationFrame(gameLoop);
 }
 
+// ============ UI ============
 function updateLives() {
     for (let i = 1; i <= 3; i++) {
         const heart = document.getElementById('heart' + i);
-        if (i > lives) {
-            heart.classList.add('lost');
-        } else {
-            heart.classList.remove('lost');
-        }
+        if (i > lives) heart.classList.add('lost');
+        else heart.classList.remove('lost');
     }
 }
 
@@ -633,9 +563,9 @@ function restartGame() {
 
 function gameOver() {
     running = false;
-    document.getElementById('finalScore').textContent = 'Você percorreu ' + distance + 'm através de ' + (scenario + 1) + ' cenários!';
+    document.getElementById('finalScore').textContent = 'Você percorreu ' + distance + 'm!';
     document.getElementById('gameOver').style.display = 'flex';
 }
 
-// Inicializar
+// Iniciar
 init();
